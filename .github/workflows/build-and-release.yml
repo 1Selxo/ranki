@@ -66,16 +66,23 @@ jobs:
           cd extracted
           zip -r ../dist/ranki.zip ranki/
           cd ..
+          cd koreader-plugin
+          zip -r ../dist/anki.koplugin.zip anki.koplugin/
+          cd ..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ranki-kindle-touch
-          path: dist/ranki.zip
+          name: ranki-and-koreader-plugin
+          path: |
+            dist/ranki.zip
+            dist/anki.koplugin.zip
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/ranki.zip
+          files: |
+            dist/ranki.zip
+            dist/anki.koplugin.zip
           generate_release_notes: true
