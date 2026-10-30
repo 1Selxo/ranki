@@ -1,0 +1,19 @@
+{
+	"items": [
+		{
+			"name": "RAnki",
+			"priority": 1,
+			"items": [
+				{
+					"name": "RAnki - spaced repetition",
+					"action": "/bin/sh /mnt/us/extensions/ranki/ranki.sh",
+					"exitmenu": true
+				},
+				{
+					"name": "copy shortcut to Library",
+					"action": "/bin/cp /mnt/us/extensions/ranki/shortcut_ranki.sh /mnt/us/documents/"
+				}							
+			]
+		}
+	]
+}
