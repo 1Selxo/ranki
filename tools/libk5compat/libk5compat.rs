@@ -119,7 +119,6 @@ pub unsafe extern "C" fn __cxa_thread_atexit_impl(
 extern "C" {
     fn dlopen(filename: *const u8, flags: i32) -> usize;
     fn dlsym(handle: usize, symbol: *const u8) -> usize;
-    fn system(cmd: *const u8) -> i32;
 }
 
 static mut REAL_LIPC_HANDLE: usize = 0;
@@ -253,15 +252,39 @@ pub unsafe extern "C" fn LipcSetStringProperty(
 
     if is_kb_open {
         KEYBOARD_OPEN = true;
-        log_str(b"[libk5compat] Opening keyboard via system(lipc-set-prop)...\n");
-        system(b"/usr/bin/lipc-set-prop -s com.lab126.keyboard open ranki.ranki.ranki:abc:1 &\0".as_ptr());
+        log_str(b"[libk5compat] Calling real LipcSetStringProperty to open keyboard...\n");
+        let sym = get_real_lipc_sym(b"LipcSetStringProperty\0".as_ptr());
+        if sym != 0 {
+            let real_fn: extern "C" fn(usize, *const u8, *const u8, *const u8) -> i32 =
+                core::mem::transmute(sym);
+            let res = real_fn(lipc, service, property, value);
+            log_str(b"[libk5compat] real LipcSetStringProperty result: ");
+            if res == 0 {
+                log_str(b"0 (success)\n");
+            } else {
+                log_str(b"non-zero, trying alternate mode :abc:0...\n");
+                let alt = b"ranki.ranki.ranki:abc:0\0";
+                let res2 = real_fn(lipc, service, property, alt.as_ptr());
+                log_str(b"[libk5compat] alternate mode result: ");
+                if res2 == 0 {
+                    log_str(b"0 (success)\n");
+                } else {
+                    log_str(b"non-zero\n");
+                }
+            }
+        }
         return 0;
     }
 
     if is_kb_close {
         KEYBOARD_OPEN = false;
-        log_str(b"[libk5compat] Closing keyboard via system(lipc-set-prop)...\n");
-        system(b"/usr/bin/lipc-set-prop -s com.lab126.keyboard close ranki.ranki.ranki &\0".as_ptr());
+        log_str(b"[libk5compat] Calling real LipcSetStringProperty to close keyboard...\n");
+        let sym = get_real_lipc_sym(b"LipcSetStringProperty\0".as_ptr());
+        if sym != 0 {
+            let real_fn: extern "C" fn(usize, *const u8, *const u8, *const u8) -> i32 =
+                core::mem::transmute(sym);
+            real_fn(lipc, service, property, value);
+        }
         return 0;
     }
 

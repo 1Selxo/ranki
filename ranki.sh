@@ -57,7 +57,6 @@ done
 export DISPLAY=":0"
 export HOME="/mnt/us"
 export LD_LIBRARY_PATH="$TMPLIB:$BASE/lib:$BASE:/usr/lib:/lib"
-export LD_PRELOAD="$TMPLIB/libk5compat.so"
 
 echo "=== Configured Libraries in $TMPLIB ==="
 ls -l "$TMPLIB"
@@ -75,7 +74,7 @@ lipc-set-prop -i com.lab126.powerd preventScreenSaver 1 2>/dev/null
 
 echo "=== Launching $BASE/ranki-$ARCH ==="
 cd "$BASE"
-"$BASE/ranki-$ARCH" "$@"
+LD_PRELOAD="$TMPLIB/libk5compat.so" "$BASE/ranki-$ARCH" "$@"
 EXIT_CODE=$?
 
 echo "=== Ranki exited with code: $EXIT_CODE ==="
