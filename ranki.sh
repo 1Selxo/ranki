@@ -16,6 +16,15 @@ eips 1 1 "Starting Ranki..." 2>/dev/null
 
 ARCH="armel"
 
+# Apply sync_media setting from config.ini to ranki-armel binary before launch
+if grep -qi "sync_media=false" "$BASE/config.ini" 2>/dev/null; then
+    echo "Media sync: DISABLED (sync_media=false in config.ini)"
+    printf '\x00\x27' | dd of="$BASE/ranki-$ARCH" bs=1 seek=$((0x21d0ec)) conv=notrunc 2>/dev/null
+else
+    echo "Media sync: ENABLED (sync_media=true in config.ini)"
+    printf '\x01\x27' | dd of="$BASE/ranki-$ARCH" bs=1 seek=$((0x21d0ec)) conv=notrunc 2>/dev/null
+fi
+
 # Create a clean tmpfs directory for libraries and symlinks (FAT32 on /mnt/us does not support symlinks)
 TMPLIB="/var/tmp/ranki-lib"
 rm -rf "$TMPLIB" 2>/dev/null
