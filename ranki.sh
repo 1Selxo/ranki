@@ -68,10 +68,7 @@ if [ -x /lib/ld-linux.so.3 ]; then
 fi
 
 echo "=== System Keyboard LIPC Diagnostic ==="
-lipc-probe -i com.lab126.keyboard 2>&1
-echo "lipc-get-prop com.lab126.keyboard show:"
-lipc-get-prop com.lab126.keyboard show 2>&1
-echo "exit code: $?"
+lipc-probe com.lab126.keyboard 2>&1
 
 # Prevent screensaver while reviewing
 lipc-set-prop -i com.lab126.powerd preventScreenSaver 1 2>/dev/null

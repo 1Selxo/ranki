@@ -203,42 +203,33 @@ pub unsafe extern "C" fn LipcGetIntProperty(
     let is_kb_show = cstr_eq(service, b"com.lab126.keyboard\0".as_ptr())
         && cstr_eq(property, b"show\0".as_ptr());
 
+    // CRITICAL FIX: On Kindle Touch FW 5.3.7.3, querying "com.lab126.keyboard show"
+    // crashes with SIGSEGV in Amazon's liblipc.so.
+    // We MUST NOT call the real function for keyboard show!
+    if is_kb_show {
+        log_str(b"[libk5compat] Intercepted com.lab126.keyboard show -> returning tracked state: ");
+        if KEYBOARD_OPEN {
+            log_str(b"1\n");
+            if !value.is_null() {
+                *value = 1;
+            }
+        } else {
+            log_str(b"0\n");
+            if !value.is_null() {
+                *value = 0;
+            }
+        }
+        return 0; // LIPC_OK!
+    }
+
     let sym = get_real_lipc_sym(b"LipcGetIntProperty\0".as_ptr());
-    let mut real_res = -1;
     if sym != 0 {
         let real_fn: extern "C" fn(usize, *const u8, *const u8, *mut i32) -> i32 =
             core::mem::transmute(sym);
-        real_res = real_fn(lipc, service, property, value);
+        return real_fn(lipc, service, property, value);
     }
 
-    if is_kb_show {
-        log_str(b"[libk5compat] LipcGetIntProperty(com.lab126.keyboard, show): real_res=");
-        if real_res == 0 {
-            log_str(b"0 (success)\n");
-            if !value.is_null() {
-                KEYBOARD_OPEN = *value != 0;
-            }
-            return 0;
-        } else {
-            // Real call returned an error on Kindle Touch.
-            // Provide simulated state (KEYBOARD_OPEN) so Lipstick doesn't throw an error!
-            log_str(b"failed, using tracked state: ");
-            if KEYBOARD_OPEN {
-                log_str(b"1\n");
-                if !value.is_null() {
-                    *value = 1;
-                }
-            } else {
-                log_str(b"0\n");
-                if !value.is_null() {
-                    *value = 0;
-                }
-            }
-            return 0; // LIPC_OK!
-        }
-    }
-
-    real_res
+    -1
 }
 
 #[no_mangle]
@@ -262,60 +253,24 @@ pub unsafe extern "C" fn LipcSetStringProperty(
 
     if is_kb_open {
         KEYBOARD_OPEN = true;
-    } else if is_kb_close {
-        KEYBOARD_OPEN = false;
-    }
-
-    let sym = get_real_lipc_sym(b"LipcSetStringProperty\0".as_ptr());
-    let mut real_res = -1;
-    if sym != 0 {
-        let real_fn: extern "C" fn(usize, *const u8, *const u8, *const u8) -> i32 =
-            core::mem::transmute(sym);
-        real_res = real_fn(lipc, service, property, value);
-    }
-
-    log_str(b"[libk5compat] LipcSetStringProperty real_res=");
-    if real_res == 0 {
-        log_str(b"0 (success)\n");
+        log_str(b"[libk5compat] Opening keyboard via system(lipc-set-prop)...\n");
+        system(b"/usr/bin/lipc-set-prop -s com.lab126.keyboard open ranki.ranki.ranki:abc:1 &\0".as_ptr());
         return 0;
     }
 
-    log_str(b"error, invoking CLI fallback\n");
-
-    if is_kb_service {
-        // Build CLI command: "/usr/bin/lipc-set-prop -s <service> <prop> <val>\0"
-        let mut cmd = [0u8; 256];
-        let mut idx = 0;
-        let prefix = b"/usr/bin/lipc-set-prop -s ";
-        for &b in prefix {
-            if idx < 250 { cmd[idx] = b; idx += 1; }
-        }
-        let s_len = cstr_len(service);
-        for i in 0..s_len {
-            if idx < 250 { cmd[idx] = *service.add(i); idx += 1; }
-        }
-        if idx < 250 { cmd[idx] = b' '; idx += 1; }
-        let p_len = cstr_len(property);
-        for i in 0..p_len {
-            if idx < 250 { cmd[idx] = *property.add(i); idx += 1; }
-        }
-        if idx < 250 { cmd[idx] = b' '; idx += 1; }
-        let v_len = cstr_len(value);
-        for i in 0..v_len {
-            if idx < 250 { cmd[idx] = *value.add(i); idx += 1; }
-        }
-        cmd[idx] = 0;
-
-        system(cmd.as_ptr());
-
-        if is_kb_open {
-            // Also try with :abc:0 mode flag in case :abc:1 isn't supported on FW 5.3.7.3
-            let cmd2 = b"/usr/bin/lipc-set-prop -s com.lab126.keyboard open ranki.ranki.ranki:abc:0\0";
-            system(cmd2.as_ptr());
-        }
-
-        return 0; // Return LIPC_OK so Vala does not throw
+    if is_kb_close {
+        KEYBOARD_OPEN = false;
+        log_str(b"[libk5compat] Closing keyboard via system(lipc-set-prop)...\n");
+        system(b"/usr/bin/lipc-set-prop -s com.lab126.keyboard close ranki.ranki.ranki &\0".as_ptr());
+        return 0;
     }
 
-    real_res
+    let sym = get_real_lipc_sym(b"LipcSetStringProperty\0".as_ptr());
+    if sym != 0 {
+        let real_fn: extern "C" fn(usize, *const u8, *const u8, *const u8) -> i32 =
+            core::mem::transmute(sym);
+        return real_fn(lipc, service, property, value);
+    }
+
+    -1
 }
