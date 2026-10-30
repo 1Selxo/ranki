@@ -3,7 +3,6 @@
 BASE="/mnt/us/extensions/ranki"
 LOG="$BASE/ranki.log"
 
-# Log everything to ranki.log
 exec > "$LOG" 2>&1
 
 echo "=========================================="
@@ -15,16 +14,26 @@ echo "=========================================="
 # Immediate on-screen feedback
 eips 1 1 "Starting Ranki..." 2>/dev/null
 
-# Determine architecture
-if [ -f /lib/ld-linux-armhf.so.3 ]; then
-    ARCH="armhf"
-else
-    ARCH="armel"
-fi
-echo "Architecture: $ARCH"
+ARCH="armel"
 
-# Create local lib directory for compatibility symlinks
+# Ensure local lib directory exists
 mkdir -p "$BASE/lib"
+
+# Check and symlink system liblipc if available, else our bundled liblipc.so.1 in $BASE/lib is used
+for lipc_candidate in /usr/lib/liblipc.so /usr/lib/liblipc.so.0 /lib/liblipc.so /opt/amazon/ebook/lib/liblipc.so; do
+    if [ -f "$lipc_candidate" ]; then
+        echo "Found system lipc at $lipc_candidate -> symlinking to $BASE/lib/liblipc.so.1"
+        ln -sf "$lipc_candidate" "$BASE/lib/liblipc.so.1"
+        break
+    fi
+done
+
+# If no system lipc was symlinked, ensure our bundled liblipc.so.1 is present in $BASE/lib/
+if [ ! -f "$BASE/lib/liblipc.so.1" ]; then
+    if [ -f "$BASE/liblipc.so.1" ]; then
+        cp -f "$BASE/liblipc.so.1" "$BASE/lib/liblipc.so.1"
+    fi
+fi
 
 # Check and symlink WebKitGTK library if needed
 if [ ! -f /usr/lib/libwebkitgtk-1.0.so ]; then
@@ -68,7 +77,7 @@ echo "=== Ranki exited with code: $EXIT_CODE ==="
 lipc-set-prop -i com.lab126.powerd preventScreenSaver 0 2>/dev/null
 
 if [ $EXIT_CODE -ne 0 ]; then
-    eips 1 2 "Ranki error ($EXIT_CODE). Check ranki.log" 2>/dev/null
+    eips 1 2 "Ranki exited ($EXIT_CODE). Check ranki.log" 2>/dev/null
 fi
 
 exit $EXIT_CODE

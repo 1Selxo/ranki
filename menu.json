@@ -6,8 +6,7 @@
 			"items": [
 				{
 					"name": "RAnki - spaced repetition",
-					"action": "/bin/sh /mnt/us/extensions/ranki/ranki.sh",
-					"exitmenu": true
+					"action": "/bin/sh /mnt/us/extensions/ranki/ranki.sh"
 				},
 				{
 					"name": "copy shortcut to Library",
