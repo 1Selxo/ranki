@@ -16,47 +16,51 @@ eips 1 1 "Starting Ranki..." 2>/dev/null
 
 ARCH="armel"
 
-# Ensure local lib directory exists
-mkdir -p "$BASE/lib"
+# Create a clean tmpfs directory for libraries and symlinks (FAT32 on /mnt/us does not support symlinks)
+TMPLIB="/var/tmp/ranki-lib"
+rm -rf "$TMPLIB" 2>/dev/null
+mkdir -p "$TMPLIB"
 
-# Check and symlink system liblipc if available, else our bundled liblipc.so.1 in $BASE/lib is used
-for lipc_candidate in /usr/lib/liblipc.so /usr/lib/liblipc.so.0 /lib/liblipc.so /opt/amazon/ebook/lib/liblipc.so; do
-    if [ -f "$lipc_candidate" ]; then
-        echo "Found system lipc at $lipc_candidate -> symlinking to $BASE/lib/liblipc.so.1"
-        ln -sf "$lipc_candidate" "$BASE/lib/liblipc.so.1"
+# Copy our bundled compatibility shims into tmpfs
+cp -f "$BASE/libk5compat.so" "$TMPLIB/libk5compat.so" 2>/dev/null
+cp -f "$BASE/liblipc.so.1" "$TMPLIB/liblipc.so.1" 2>/dev/null
+cp -f "$BASE/libcurl.so.4" "$TMPLIB/libcurl.so.4" 2>/dev/null
+
+# Check and symlink system WebKitGTK into tmpfs
+for f in /usr/lib/libwebkitgtk-1.0.so* /usr/lib/libwebkit-1.0.so* /lib/libwebkitgtk-1.0.so*; do
+    if [ -f "$f" ]; then
+        echo "Found system WebKit: $f -> symlinking to $TMPLIB/libwebkitgtk-1.0.so"
+        ln -sf "$f" "$TMPLIB/libwebkitgtk-1.0.so"
         break
     fi
 done
 
-# If no system lipc was symlinked, ensure our bundled liblipc.so.1 is present in $BASE/lib/
-if [ ! -f "$BASE/lib/liblipc.so.1" ]; then
-    if [ -f "$BASE/liblipc.so.1" ]; then
-        cp -f "$BASE/liblipc.so.1" "$BASE/lib/liblipc.so.1"
+# If system liblipc exists, symlink it so native IPC works
+for f in /usr/lib/liblipc.so /usr/lib/liblipc.so.0 /lib/liblipc.so; do
+    if [ -f "$f" ]; then
+        echo "Found system LIPC: $f -> symlinking to $TMPLIB/liblipc.so.1"
+        ln -sf "$f" "$TMPLIB/liblipc.so.1"
+        break
     fi
-fi
+done
 
-# Check and symlink WebKitGTK library if needed
-if [ ! -f /usr/lib/libwebkitgtk-1.0.so ]; then
-    if [ -f /usr/lib/libwebkitgtk-1.0.so.0 ]; then
-        echo "Symlinking /usr/lib/libwebkitgtk-1.0.so.0 -> $BASE/lib/libwebkitgtk-1.0.so"
-        ln -sf /usr/lib/libwebkitgtk-1.0.so.0 "$BASE/lib/libwebkitgtk-1.0.so"
-    elif [ -f /usr/lib/libwebkit-1.0.so ]; then
-        echo "Symlinking /usr/lib/libwebkit-1.0.so -> $BASE/lib/libwebkitgtk-1.0.so"
-        ln -sf /usr/lib/libwebkit-1.0.so "$BASE/lib/libwebkitgtk-1.0.so"
+# If system libcurl exists, symlink it
+for f in /usr/lib/libcurl.so* /lib/libcurl.so*; do
+    if [ -f "$f" ]; then
+        echo "Found system libcurl: $f -> symlinking to $TMPLIB/libcurl.so.4"
+        ln -sf "$f" "$TMPLIB/libcurl.so.4"
+        break
     fi
-fi
+done
 
 # Set essential GTK / X11 / Library environment variables
 export DISPLAY=":0"
 export HOME="/mnt/us"
-export LD_LIBRARY_PATH="$BASE/lib:$BASE:/usr/lib:/lib"
+export LD_LIBRARY_PATH="$TMPLIB:$BASE/lib:$BASE:/usr/lib:/lib"
+export LD_PRELOAD="$TMPLIB/libk5compat.so"
 
-if [ -f "$BASE/libk5compat.so" ]; then
-    echo "Using compatibility shim: $BASE/libk5compat.so"
-    export LD_PRELOAD="$BASE/libk5compat.so"
-else
-    echo "WARNING: libk5compat.so not found!"
-fi
+echo "=== Configured Libraries in $TMPLIB ==="
+ls -l "$TMPLIB"
 
 echo "=== Dynamic Linking Check ==="
 if [ -x /lib/ld-linux.so.3 ]; then
