@@ -78,41 +78,41 @@ pub unsafe extern "C" fn LipcClose(h: usize) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn LipcSetStringProperty(h: usize, prop: *const u8, val: *const u8) -> i32 {
+pub unsafe extern "C" fn LipcSetStringProperty(h: usize, service: *const u8, prop: *const u8, val: *const u8) -> i32 {
     let sym = get_real_sym(b"LipcSetStringProperty\0".as_ptr());
     if sym != 0 {
-        let f: extern "C" fn(usize, *const u8, *const u8) -> i32 = core::mem::transmute(sym);
-        return f(h, prop, val);
+        let f: extern "C" fn(usize, *const u8, *const u8, *const u8) -> i32 = core::mem::transmute(sym);
+        return f(h, service, prop, val);
     }
     0
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn LipcGetStringProperty(h: usize, prop: *const u8, out: *mut *mut u8) -> i32 {
+pub unsafe extern "C" fn LipcGetStringProperty(h: usize, service: *const u8, prop: *const u8, out: *mut *mut u8) -> i32 {
     let sym = get_real_sym(b"LipcGetStringProperty\0".as_ptr());
     if sym != 0 {
-        let f: extern "C" fn(usize, *const u8, *mut *mut u8) -> i32 = core::mem::transmute(sym);
-        return f(h, prop, out);
+        let f: extern "C" fn(usize, *const u8, *const u8, *mut *mut u8) -> i32 = core::mem::transmute(sym);
+        return f(h, service, prop, out);
     }
     0
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn LipcSetIntProperty(h: usize, prop: *const u8, val: i32) -> i32 {
+pub unsafe extern "C" fn LipcSetIntProperty(h: usize, service: *const u8, prop: *const u8, val: i32) -> i32 {
     let sym = get_real_sym(b"LipcSetIntProperty\0".as_ptr());
     if sym != 0 {
-        let f: extern "C" fn(usize, *const u8, i32) -> i32 = core::mem::transmute(sym);
-        return f(h, prop, val);
+        let f: extern "C" fn(usize, *const u8, *const u8, i32) -> i32 = core::mem::transmute(sym);
+        return f(h, service, prop, val);
     }
     0
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn LipcGetIntProperty(h: usize, prop: *const u8, out: *mut i32) -> i32 {
+pub unsafe extern "C" fn LipcGetIntProperty(h: usize, service: *const u8, prop: *const u8, out: *mut i32) -> i32 {
     let sym = get_real_sym(b"LipcGetIntProperty\0".as_ptr());
     if sym != 0 {
-        let f: extern "C" fn(usize, *const u8, *mut i32) -> i32 = core::mem::transmute(sym);
-        return f(h, prop, out);
+        let f: extern "C" fn(usize, *const u8, *const u8, *mut i32) -> i32 = core::mem::transmute(sym);
+        return f(h, service, prop, out);
     }
     0
 }
@@ -147,21 +147,21 @@ pub unsafe extern "C" fn LipcGetIntParam(event: usize, idx: i32, out: *mut i32) 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn LipcSubscribeExt(h: usize, name: *const u8, cb: usize, data: usize) -> i32 {
+pub unsafe extern "C" fn LipcSubscribeExt(h: usize, service: *const u8, prop: *const u8, cb: usize, data: usize) -> i32 {
     let sym = get_real_sym(b"LipcSubscribeExt\0".as_ptr());
     if sym != 0 {
-        let f: extern "C" fn(usize, *const u8, usize, usize) -> i32 = core::mem::transmute(sym);
-        return f(h, name, cb, data);
+        let f: extern "C" fn(usize, *const u8, *const u8, usize, usize) -> i32 = core::mem::transmute(sym);
+        return f(h, service, prop, cb, data);
     }
     0
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn LipcUnsubscribeExt(h: usize, name: *const u8, cb: usize, data: usize) -> i32 {
+pub unsafe extern "C" fn LipcUnsubscribeExt(h: usize, service: *const u8, prop: *const u8, cb: usize, data: usize) -> i32 {
     let sym = get_real_sym(b"LipcUnsubscribeExt\0".as_ptr());
     if sym != 0 {
-        let f: extern "C" fn(usize, *const u8, usize, usize) -> i32 = core::mem::transmute(sym);
-        return f(h, name, cb, data);
+        let f: extern "C" fn(usize, *const u8, *const u8, usize, usize) -> i32 = core::mem::transmute(sym);
+        return f(h, service, prop, cb, data);
     }
     0
 }

@@ -30,11 +30,17 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Build libk5compat.so
+      - name: Build shims
         run: |
           rustc --target armv7-unknown-linux-gnueabi --crate-type cdylib \
             -C linker=rust-lld -C panic=abort -O \
             tools/libk5compat/libk5compat.rs -o tools/libk5compat/libk5compat.so
+          rustc --target armv7-unknown-linux-gnueabi --crate-type cdylib \
+            -C linker=rust-lld -C panic=abort -O \
+            tools/liblipc/liblipc.rs -o tools/liblipc/liblipc.so.1
+          rustc --target armv7-unknown-linux-gnueabi --crate-type cdylib \
+            -C linker=rust-lld -C panic=abort -O \
+            tools/libcurl/libcurl.rs -o tools/libcurl/libcurl.so.4
 
       - name: Download base release assets
         run: |
@@ -45,38 +51,10 @@ jobs:
         run: |
           python3 tools/patcher/patch_glibc.py extracted/ranki/ranki-armel extracted/ranki/ranki-armel
           cp tools/libk5compat/libk5compat.so extracted/ranki/libk5compat.so
-
-      - name: Update launcher scripts
-        run: |
-          cat << 'EOF' > extracted/ranki/ranki.sh
-          #!/bin/sh
-
-          BASE="/mnt/us/extensions/ranki"
-
-          if [ -f /lib/ld-linux-armhf.so.3 ]; then
-              ARCH="armhf"
-          else
-              ARCH="armel"
-          fi
-
-          mkdir -p "$BASE/lib"
-
-          if [ ! -f /usr/lib/libwebkitgtk-1.0.so ] && [ -f /usr/lib/libwebkitgtk-1.0.so.0 ]; then
-              [ ! -e "$BASE/lib/libwebkitgtk-1.0.so" ] && ln -s /usr/lib/libwebkitgtk-1.0.so.0 "$BASE/lib/libwebkitgtk-1.0.so"
-          fi
-
-          export LD_LIBRARY_PATH="$BASE/lib:$BASE:/usr/lib:/lib"
-
-          if [ -f "$BASE/libk5compat.so" ]; then
-              export LD_PRELOAD="$BASE/libk5compat.so"
-          fi
-
-          lipc-set-prop -i com.lab126.powerd preventScreenSaver 1 2>/dev/null
-
-          "$BASE/ranki-$ARCH" "$@"
-
-          lipc-set-prop -i com.lab126.powerd preventScreenSaver 0 2>/dev/null
-          EOF
+          cp tools/liblipc/liblipc.so.1 extracted/ranki/liblipc.so.1
+          cp tools/libcurl/libcurl.so.4 extracted/ranki/libcurl.so.4
+          cp ranki.sh extracted/ranki/ranki.sh
+          cp menu.json extracted/ranki/menu.json
           chmod +x extracted/ranki/ranki.sh
 
       - name: Package release zip
