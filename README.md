@@ -8,7 +8,14 @@ Minimal flashcard reviewer for Kindle e-reader devices, powered by the real Anki
 > Always backup your Anki collection before trying this app.
 > I am **not responsible** for any data loss.
 
-Built for `armel` and `armhf` (tested on 5.14.3, 5.17.1 and 5.18.5)
+Built for `armel` and `armhf` (tested on Kindle Touch 4th Gen 5.3.7.3, 5.14.3, 5.17.1 and 5.18.5)
+
+### Kindle Touch (4th Generation / Firmware 5.3.7.3) Support
+This fork adds complete out-of-the-box compatibility for **Kindle Touch 4th Gen (K5)** running legacy firmware **5.3.7.3** (Linux kernel 2.6.31, glibc 2.12.1):
+- **`libk5compat.so`**: Standalone ARMv7 EABI compatibility shim supplying missing `clock_gettime`, `getauxval`, and thread-local atexit syscalls.
+- **GLIBC 2.12 Compatibility**: Patching ELF version records in `ranki-armel` so the Kindle Touch 5.3.7.3 dynamic linker loads it without `GLIBC_2.15 not found` errors.
+- **WebKitGTK Symlink Handling**: Automatic detection and symlinking of `/usr/lib/libwebkitgtk-1.0.so.0` on legacy rootfs.
+- **Power Management**: Auto-prevents Kindle Touch screensaver sleep while reviewing via `com.lab126.powerd`.
 
 <img width="300" alt="decks" src="https://github.com/user-attachments/assets/270407e5-4290-4820-9595-b2d072ca9c1e" />
 <img width="300" alt="review" src="https://github.com/user-attachments/assets/87803fb1-eb44-40f3-8586-e4db38d3a072" />

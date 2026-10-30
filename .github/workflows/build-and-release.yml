@@ -1,0 +1,100 @@
+name: Build and Package Ranki for Kindle Touch
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: armv7-unknown-linux-gnueabi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build libk5compat.so
+        run: |
+          rustc --target armv7-unknown-linux-gnueabi --crate-type cdylib \
+            -C linker=rust-lld -C panic=abort -O \
+            tools/libk5compat/libk5compat.rs -o tools/libk5compat/libk5compat.so
+
+      - name: Download base release assets
+        run: |
+          curl -sL https://github.com/crazy-electron/ranki/releases/download/v0.2/ranki.zip -o upstream_ranki.zip
+          unzip upstream_ranki.zip -d extracted
+
+      - name: Apply Kindle Touch 5.3.7.3 patch to ranki-armel
+        run: |
+          python3 tools/patcher/patch_glibc.py extracted/ranki/ranki-armel extracted/ranki/ranki-armel
+          cp tools/libk5compat/libk5compat.so extracted/ranki/libk5compat.so
+
+      - name: Update launcher scripts
+        run: |
+          cat << 'EOF' > extracted/ranki/ranki.sh
+          #!/bin/sh
+
+          BASE="/mnt/us/extensions/ranki"
+
+          if [ -f /lib/ld-linux-armhf.so.3 ]; then
+              ARCH="armhf"
+          else
+              ARCH="armel"
+          fi
+
+          mkdir -p "$BASE/lib"
+
+          if [ ! -f /usr/lib/libwebkitgtk-1.0.so ] && [ -f /usr/lib/libwebkitgtk-1.0.so.0 ]; then
+              [ ! -e "$BASE/lib/libwebkitgtk-1.0.so" ] && ln -s /usr/lib/libwebkitgtk-1.0.so.0 "$BASE/lib/libwebkitgtk-1.0.so"
+          fi
+
+          export LD_LIBRARY_PATH="$BASE/lib:$BASE:/usr/lib:/lib"
+
+          if [ -f "$BASE/libk5compat.so" ]; then
+              export LD_PRELOAD="$BASE/libk5compat.so"
+          fi
+
+          lipc-set-prop -i com.lab126.powerd preventScreenSaver 1 2>/dev/null
+
+          "$BASE/ranki-$ARCH" "$@"
+
+          lipc-set-prop -i com.lab126.powerd preventScreenSaver 0 2>/dev/null
+          EOF
+          chmod +x extracted/ranki/ranki.sh
+
+      - name: Package release zip
+        run: |
+          mkdir -p dist
+          cd extracted
+          zip -r ../dist/ranki.zip ranki/
+          cd ..
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ranki-kindle-touch
+          path: dist/ranki.zip
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ranki.zip
+          generate_release_notes: true
