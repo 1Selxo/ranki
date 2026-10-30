@@ -56,7 +56,9 @@ jobs:
           cp tools/libcurl/libcurl.so.4 extracted/ranki/libcurl.so.4
           cp ranki.sh extracted/ranki/ranki.sh
           cp menu.json extracted/ranki/menu.json
+          cp toggle_media_sync.sh extracted/ranki/toggle_media_sync.sh
           chmod +x extracted/ranki/ranki.sh
+          chmod +x extracted/ranki/toggle_media_sync.sh
 
       - name: Package release zip
         run: |
