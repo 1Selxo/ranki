@@ -115,7 +115,18 @@ public class SettingsView : AppView {
                         </packing>
                         </child>                        
 
-                        <child>
+                                                <child>
+                        <object class="InkRowToggleButton" id="sync_media_toggle">
+                            <property name="label">Sync media</property>
+                            <property name="description">download images &amp; audio</property>
+                        </object>
+                        <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">False</property>
+                        </packing>
+                        </child>
+
+<child>
                         <object class="GtkHBox" id="hbox2">   
                         
                             <child>
@@ -203,6 +214,7 @@ public class SettingsView : AppView {
 
     private Entry sync_server_entry;
     private InkRowToggleButton sync_server_toggle;
+    private InkRowToggleButton sync_media_toggle;
 
     public bool has_mathjax { get; set; default = false; }
     public bool has_custom_sync_server { get; set; default = false; }
@@ -230,6 +242,7 @@ public class SettingsView : AppView {
 
         sync_server_entry  = builder.get_object ("sync_server_entry") as Entry;
         sync_server_toggle = builder.get_object ("sync_server_toggle") as InkRowToggleButton;
+        sync_media_toggle  = builder.get_object ("sync_media_toggle") as InkRowToggleButton;
 
         login_button   = builder.get_object ("login_button") as Button;
         
@@ -287,6 +300,10 @@ public class SettingsView : AppView {
             has_mathjax = dir.query_exists();
         }
         
+        bind_settings<bool> (keyfile, "General", "sync_media", sync_media_toggle, "active", () => { 
+            do_action(AnkiReviewer.AppViewActions.SAVE_SETTINGS);
+        });
+
         bind_settings<string> (keyfile, "General", "sync_server", sync_server_entry, "text", () => { 
             do_action(AnkiReviewer.AppViewActions.SAVE_SETTINGS);
         });        

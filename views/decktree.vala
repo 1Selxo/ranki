@@ -297,7 +297,15 @@ public class DeckTreeView : AppView {
             };
 
             yield run_thread<void>(
-                () => backend.sync_collection(a_sync_syncauth)
+                () => {
+                    var sync_media = true;
+                    try {
+                        sync_media = keyfile.get_boolean("General", "sync_media");
+                    } catch (Error e) {
+                        // default true
+                    }
+                    backend.sync_collection(a_sync_syncauth, sync_media);
+                }
             );
 
             populate_decktree();

@@ -50,6 +50,7 @@ jobs:
       - name: Apply Kindle Touch 5.3.7.3 patch to ranki-armel
         run: |
           python3 tools/patcher/patch_glibc.py extracted/ranki/ranki-armel extracted/ranki/ranki-armel
+          python3 tools/patcher/patch_ranki_media.py extracted/ranki/ranki-armel
           cp tools/libk5compat/libk5compat.so extracted/ranki/libk5compat.so
           cp tools/liblipc/liblipc.so.1 extracted/ranki/liblipc.so.1
           cp tools/libcurl/libcurl.so.4 extracted/ranki/libcurl.so.4

@@ -137,7 +137,7 @@ public class Backend : GLib.Object {
 
     }
 
-    public void sync_collection(Anki.Sync.SyncAuth a_sync_syncauth) throws Error {
+    public void sync_collection(Anki.Sync.SyncAuth a_sync_syncauth, bool sync_media = true) throws Error {
 
         //  Thread.usleep (2 * 1000 * 1000);
 
@@ -160,7 +160,7 @@ public class Backend : GLib.Object {
 
         var a_sync_synccollection_req = new Anki.Sync.SyncCollectionRequest() {
             auth = a_sync_syncauth,
-            sync_media = true
+            sync_media = sync_media
         };
         var a_sync_synccollection_res = new Anki.Sync.SyncCollectionResponse();
 
