@@ -121,9 +121,33 @@ local function generate_guid()
     return table.concat(guid)
 end
 
--- LuaJIT FFI int64 helper
+-- LuaJIT FFI int64 helper & sqlite collation support
 local ok_ffi, ffi = pcall(require, "ffi")
 local int64_ct = ok_ffi and ffi.typeof("int64_t")
+local sql_lib = nil
+if ok_ffi then
+    pcall(function()
+        sql_lib = ffi.loadlib("sqlite3", "0")
+        ffi.cdef[[
+            typedef int (*ljsqlite3_collation)(void*, int, const void*, int, const void*);
+            int sqlite3_create_collation(void *db, const char *zName, int eTextRep, void *pArg, ljsqlite3_collation xCompare);
+        ]]
+    end)
+end
+
+local c_unicase_cmp = nil
+if ok_ffi and sql_lib then
+    pcall(function()
+        local function unicase_cmp(arg, l1, s1, l2, s2)
+            local str1 = ffi.string(s1, l1):lower()
+            local str2 = ffi.string(s2, l2):lower()
+            if str1 < str2 then return -1 end
+            if str1 > str2 then return 1 end
+            return 0
+        end
+        c_unicase_cmp = ffi.cast("ljsqlite3_collation", unicase_cmp)
+    end)
+end
 
 local function to_sql_int(val)
     if val == nil then return "0" end
@@ -205,6 +229,15 @@ function RAnkiLocal.open_db()
     if not ok or not conn then
         return nil, string.format("Failed to open SQLite database '%s': %s", path, conn or err)
     end
+
+    -- Register unicase collation so SQLite's query planner handles Anki's WITHOUT ROWID indexes and sqlite_stat4 samples
+    if ok_ffi and sql_lib and conn and conn._ptr and c_unicase_cmp then
+        pcall(function()
+            sql_lib.sqlite3_create_collation(conn._ptr, "unicase", 1, nil, c_unicase_cmp)
+            sql_lib.sqlite3_create_collation(conn._ptr, "UNICASE", 1, nil, c_unicase_cmp)
+        end)
+    end
+
     return conn
 end
 
@@ -332,23 +365,47 @@ function RAnkiLocal.add_note(note)
         end
         local mid_sql = to_sql_int(mid)
 
-        -- 3. Fetch fields for model in ord order (inlined integer ID avoids "no query solution" on WITHOUT ROWID table)
+        -- 3. Fetch fields for model in ord order
         local fields = {}
-        local fields_stmt = conn:prepare(string.format("SELECT name FROM fields WHERE ntid = %s ORDER BY ord ASC", mid_sql))
-        while true do
-            local r = fields_stmt:step()
-            if not r then break end
-            table.insert(fields, r[1])
+        local f_ok = pcall(function()
+            local fields_stmt = conn:prepare(string.format("SELECT name FROM fields WHERE ntid = %s ORDER BY ord ASC", mid_sql))
+            while true do
+                local r = fields_stmt:step()
+                if not r then break end
+                table.insert(fields, r[1])
+            end
+            fields_stmt:close()
+        end)
+        if not f_ok or #fields == 0 then
+            logger.warn("RAnkiLocal: Could not query fields table, using fallback model schema for", model_name)
+            if model_name == "Lapis" then
+                fields = {
+                    "Expression", "ExpressionFurigana", "ExpressionReading", "ExpressionAudio",
+                    "SelectionText", "MainDefinition", "DefinitionPicture", "Sentence",
+                    "SentenceFurigana", "SentenceAudio", "Picture", "Glossary", "Hint",
+                    "IsWordAndSentenceCard", "IsClickCard", "IsSentenceCard", "IsAudioCard",
+                    "PitchPosition", "PitchCategories", "Frequency", "FreqSort", "MiscInfo"
+                }
+            elseif model_name == "Kaishi" then
+                fields = { "Word", "Reading", "Meaning", "Sentence", "SentenceReading", "SentenceMeaning", "Audio", "Image" }
+            else
+                fields = { "Front", "Back" }
+            end
         end
-        fields_stmt:close()
 
         -- 4. Fetch templates for model in ord order
         local templates = {}
-        local tmpls_stmt = conn:prepare(string.format("SELECT ord FROM templates WHERE ntid = %s ORDER BY ord ASC", mid_sql))
-        while true do
-            local r = tmpls_stmt:step()
-            if not r then break end
-            table.insert(templates, r[1])
+        pcall(function()
+            local tmpls_stmt = conn:prepare(string.format("SELECT ord FROM templates WHERE ntid = %s ORDER BY ord ASC", mid_sql))
+            while true do
+                local r = tmpls_stmt:step()
+                if not r then break end
+                table.insert(templates, r[1])
+            end
+            tmpls_stmt:close()
+        end)
+        if #templates == 0 then
+            table.insert(templates, 0)
         end
         tmpls_stmt:close()
         if #templates == 0 then
