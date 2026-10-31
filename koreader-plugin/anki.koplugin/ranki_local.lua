@@ -250,6 +250,56 @@ function RAnkiLocal.get_modelnames()
     return models
 end
 
+-- Fast duplicate check for dictionary popup button status
+function RAnkiLocal.is_duplicate_word(word, deck_name)
+    if not word or word == "" then return false end
+    local conn, err = RAnkiLocal.open_db()
+    if not conn then return false end
+
+    local clean_word = strip_html(word)
+    local csum_num = sha1_csum(clean_word)
+
+    local is_dup = false
+    pcall(function()
+        local dup_stmt
+        if deck_name then
+            local d_stmt = conn:prepare("SELECT id FROM decks WHERE name = ? COLLATE BINARY")
+            d_stmt:bind(deck_name)
+            local d_row = d_stmt:step()
+            local did = d_row and d_row[1]
+            d_stmt:close()
+
+            if did then
+                dup_stmt = conn:prepare(string.format([[
+                    SELECT n.id FROM notes n
+                    JOIN cards c ON n.id = c.nid
+                    WHERE c.did = %s AND n.csum = ? AND n.sfld = ?
+                    LIMIT 1
+                ]], to_sql_int(did)))
+                dup_stmt:bind(to_int64(csum_num), clean_word)
+            end
+        end
+
+        if not dup_stmt then
+            dup_stmt = conn:prepare([[
+                SELECT id FROM notes
+                WHERE csum = ? AND sfld = ?
+                LIMIT 1
+            ]])
+            dup_stmt:bind(to_int64(csum_num), clean_word)
+        end
+
+        local row = dup_stmt:step()
+        if row and row[1] then
+            is_dup = true
+        end
+        dup_stmt:close()
+    end)
+
+    conn:close()
+    return is_dup
+end
+
 -- Direct local card & note insertion into RAnki collection.anki2
 function RAnkiLocal.add_note(note)
     local conn, err = RAnkiLocal.open_db()
@@ -269,6 +319,7 @@ function RAnkiLocal.add_note(note)
         if not did then
             error(string.format("Deck '%s' not found in RAnki database!", deck_name))
         end
+        local did_sql = to_sql_int(did)
 
         -- 2. Find model (notetype) ID
         local model_stmt = conn:prepare("SELECT id FROM notetypes WHERE name = ? COLLATE BINARY")
@@ -279,11 +330,11 @@ function RAnkiLocal.add_note(note)
         if not mid then
             error(string.format("Note type (model) '%s' not found in RAnki database!", model_name))
         end
+        local mid_sql = to_sql_int(mid)
 
-        -- 3. Fetch fields for model in ord order
+        -- 3. Fetch fields for model in ord order (inlined integer ID avoids "no query solution" on WITHOUT ROWID table)
         local fields = {}
-        local fields_stmt = conn:prepare("SELECT name FROM fields WHERE ntid = ? ORDER BY ord ASC")
-        fields_stmt:bind(to_int64(mid))
+        local fields_stmt = conn:prepare(string.format("SELECT name FROM fields WHERE ntid = %s ORDER BY ord ASC", mid_sql))
         while true do
             local r = fields_stmt:step()
             if not r then break end
@@ -293,8 +344,7 @@ function RAnkiLocal.add_note(note)
 
         -- 4. Fetch templates for model in ord order
         local templates = {}
-        local tmpls_stmt = conn:prepare("SELECT ord FROM templates WHERE ntid = ? ORDER BY ord ASC")
-        tmpls_stmt:bind(to_int64(mid))
+        local tmpls_stmt = conn:prepare(string.format("SELECT ord FROM templates WHERE ntid = %s ORDER BY ord ASC", mid_sql))
         while true do
             local r = tmpls_stmt:step()
             if not r then break end
@@ -324,20 +374,20 @@ function RAnkiLocal.add_note(note)
             local is_dup = false
             local dup_stmt
             if options.duplicateScope == "deck" then
-                dup_stmt = conn:prepare([[
+                dup_stmt = conn:prepare(string.format([[
                     SELECT n.id FROM notes n
                     JOIN cards c ON n.id = c.nid
-                    WHERE c.did = ? AND n.mid = ? AND n.csum = ? AND n.sfld = ?
+                    WHERE c.did = %s AND n.csum = ? AND n.sfld = ?
                     LIMIT 1
-                ]])
-                dup_stmt:bind(to_int64(did), to_int64(mid), to_int64(csum_num), sfld)
+                ]], did_sql))
+                dup_stmt:bind(to_int64(csum_num), sfld)
             else
                 dup_stmt = conn:prepare([[
                     SELECT id FROM notes
-                    WHERE mid = ? AND csum = ? AND sfld = ?
+                    WHERE csum = ? AND sfld = ?
                     LIMIT 1
                 ]])
-                dup_stmt:bind(to_int64(mid), to_int64(csum_num), sfld)
+                dup_stmt:bind(to_int64(csum_num), sfld)
             end
             local row = dup_stmt:step()
             if row then

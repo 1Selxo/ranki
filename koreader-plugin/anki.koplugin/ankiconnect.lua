@@ -353,6 +353,9 @@ function AnkiConnect:add_note(anki_note)
 
     local result, request_err = self:request_add_note(note.data)
     if request_err then
+        if string.find(tostring(request_err):lower(), "duplicate") then
+            return self:show_popup("Note is a duplicate (already in Anki)!", 3, true)
+        end
         return self:show_popup(string.format("Error while saving note:\n\n%s", request_err), 4, true)
     end
     local mode = self:is_local_mode() and "local_ranki" or "online"

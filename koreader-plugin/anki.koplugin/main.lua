@@ -442,6 +442,23 @@ function AnkiWidget:registerDictButtons()
             text = _("Add to Anki"),
             font_bold = true,
             insert_first = true,
+            show_func = function(dict_popup)
+                local word = dict_popup.lookupword or dict_popup.word
+                local ok, ranki_local = pcall(require, "ranki_local")
+                if ok and ranki_local and ranki_local.is_duplicate_word then
+                    local is_dup = ranki_local.is_duplicate_word(word)
+                    if is_dup then
+                        self.add_to_anki_btn.text = _("Already in Anki")
+                        self.add_to_anki_btn.font_bold = false
+                        self.add_to_anki_btn.enabled = false
+                    else
+                        self.add_to_anki_btn.text = _("Add to Anki")
+                        self.add_to_anki_btn.font_bold = true
+                        self.add_to_anki_btn.enabled = true
+                    end
+                end
+                return true
+            end,
             callback = function(popup_dict)
                 self:set_profile(function()
                     self:check_conn(function()
@@ -472,15 +489,47 @@ function AnkiWidget:onDictButtonsReady(dict_popup, buttons)
         return
     end
 
+    local word = dict_popup.lookupword or dict_popup.word
+    local is_dup = false
+    local ok, ranki_local = pcall(require, "ranki_local")
+    if ok and ranki_local and ranki_local.is_duplicate_word then
+        local file_name = self.ui and self.ui.document and self.ui.document.file
+        local user_profile = file_name and self.known_document_profiles and self.known_document_profiles:readSetting(file_name)
+        local pdata = (user_profile and Configuration.profiles[user_profile] and Configuration.profiles[user_profile].data)
+                      or (Configuration.profile and Configuration.profile.data)
+                      or {}
+        local deck_name = (pdata.dupe_scope == "deck") and (pdata.deckName or "Mining") or nil
+        is_dup = ranki_local.is_duplicate_word(word, deck_name)
+    end
+
+    local btn_text = is_dup and _("Already in Anki") or _("Add to Anki")
     local anki_btn = {
         id = "add_to_anki",
-        text = _("Add to Anki"),
-        font_bold = true,
+        text = btn_text,
+        font_bold = not is_dup,
+        enabled = not is_dup,
         callback = function()
+            if is_dup then return end
             self:set_profile(function()
                 self:check_conn(function()
                     self.current_note = AnkiNote:new(dict_popup)
                     AnkiConnect:add_note(self.current_note)
+
+                    -- Immediately grey out button upon saving
+                    if dict_popup.button_table and dict_popup.button_table.button_by_id then
+                        local btn = dict_popup.button_table.button_by_id["add_to_anki"]
+                        if btn then
+                            if btn.setText then
+                                btn:setText(_("Added to Anki"), btn.width)
+                            end
+                            if btn.disable then
+                                btn:disable()
+                            end
+                            UIManager:setDirty(dict_popup, function()
+                                return "ui", btn.dimen
+                            end)
+                        end
+                    end
                 end)
             end)
         end,
