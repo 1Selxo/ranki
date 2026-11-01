@@ -407,10 +407,6 @@ function RAnkiLocal.add_note(note)
         if #templates == 0 then
             table.insert(templates, 0)
         end
-        tmpls_stmt:close()
-        if #templates == 0 then
-            table.insert(templates, 0)
-        end
 
         -- 5. Build flds string & sfld
         local note_fields = note.fields or {}
