@@ -47,16 +47,18 @@ jobs:
           curl -sL https://github.com/crazy-electron/ranki/releases/download/v0.2/ranki.zip -o upstream_ranki.zip
           unzip upstream_ranki.zip -d extracted
 
-      - name: Apply Kindle Touch 5.3.7.3 patch to ranki-armel
+      - name: Apply patches and configure package
         run: |
           python3 tools/patcher/patch_glibc.py extracted/ranki/ranki-armel extracted/ranki/ranki-armel
-          python3 tools/patcher/patch_ranki_media.py extracted/ranki/ranki-armel
+          python3 tools/patcher/patch_ranki_media.py extracted/ranki/ranki-armel extracted/ranki/ranki-armhf
           cp tools/libk5compat/libk5compat.so extracted/ranki/libk5compat.so
           cp tools/liblipc/liblipc.so.1 extracted/ranki/liblipc.so.1
           cp tools/libcurl/libcurl.so.4 extracted/ranki/libcurl.so.4
           cp ranki.sh extracted/ranki/ranki.sh
           cp menu.json extracted/ranki/menu.json
           cp toggle_media_sync.sh extracted/ranki/toggle_media_sync.sh
+          chmod +x extracted/ranki/ranki-armel
+          chmod +x extracted/ranki/ranki-armhf
           chmod +x extracted/ranki/ranki.sh
           chmod +x extracted/ranki/toggle_media_sync.sh
 
