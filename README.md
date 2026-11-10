@@ -67,6 +67,7 @@ This fork adds complete out-of-the-box compatibility for **Kindle Touch 4th Gen 
            ├── config.xml
            ├── menu.json
            ├── ranki-armel
+           ├── ranki-armhf
            ├── ranki.sh
            ├── toggle_media_sync.sh
            └── ...
@@ -117,8 +118,8 @@ sync_server=
 scale=1.5
 ```
 
-### How to Retrieve Your `hkey` Token
-The `hkey` is AnkiWeb's session authentication token (starts with `r:`).
+### How to Configure Your `hkey` Token
+The `hkey` is AnkiWeb's session authentication token (starts with `r:`). Prefer logging in through Ranki's Settings UI so Ranki obtains and saves a fresh token. A token copied from Anki Desktop may be stale or may not be accepted by AnkiWeb.
 
 #### Option A: Extract from Anki Desktop on Your PC
 If you are already logged into Anki on your PC, Anki has already saved this token (`syncKey`) in `prefs21.db`. You can retrieve it instantly:
@@ -134,7 +135,9 @@ If you are already logged into Anki on your PC, Anki has already saved this toke
 Copy the printed `hkey` value (e.g. `r:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`) and paste it into `config.ini`.
 
 #### Option B: Log In via the Ranki UI
-Alternatively, on the Kindle, go to **Settings** -> enter your AnkiWeb Username & Password -> tap **Login**. Ranki will fetch the token and automatically write it to `config.ini`.
+On the Kindle, go to **Settings** -> enter your AnkiWeb username and password -> tap **Login**. Ranki will fetch a fresh token and automatically write it to `config.ini`. If collection sync reports that the email or password was incorrect, log in to AnkiWeb on a computer or phone to verify the account credentials, then try Login in Ranki again.
+
+Do not share `config.ini` or `ranki.log`: both may contain the authentication token.
 
 ---
 
@@ -252,6 +255,11 @@ Ranki injects a `.kindle` CSS class into card containers. You can add Kindle-spe
 ---
 
 ## Troubleshooting
+
+### Ranki exits with code 127 or reports `ranki-armel: not found`
+The launcher checks the Kindle's ARM dynamic loaders and selects the matching binary (`ranki-armel` or `ranki-armhf`). A “not found” launch error can occur even when the binary exists if its required loader is unavailable. Update to the latest release and check `ranki.log` for the detected loaders and selected binary. If neither loader is available, this build does not match the Kindle's installed userspace.
+
+The media-sync toggle currently applies only to the ARMEL binary. If Ranki selects ARMHF, the launch log notes that `sync_media` cannot be applied to that binary.
 
 ### "Unrecognized token" or error while saving note in KOReader
 Ensure you are using the updated `ranki_local.lua` from this repository. Previous versions split queries on semicolons in dictionary entries; the current version uses parameterized SQLite prepared statements.

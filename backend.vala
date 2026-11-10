@@ -156,8 +156,6 @@ public class Backend : GLib.Object {
         //      endpoint = "https://ankiweb.net/"
         //  };
 
-        debug("sync_collection %s", a_sync_syncauth.to_string() );
-
         var a_sync_synccollection_req = new Anki.Sync.SyncCollectionRequest() {
             auth = a_sync_syncauth,
             sync_media = sync_media
@@ -177,8 +175,6 @@ public class Backend : GLib.Object {
             if ( a_sync_synccollection_res.new_endpoint != null ){
                 a_sync_syncauth.endpoint = a_sync_synccollection_res.new_endpoint;
             }
-
-            debug("sync_collection for full %s", a_sync_syncauth.to_string() );   
 
             var a_sync_fulluploadordownload_req = new Anki.Sync.FullUploadOrDownloadRequest() {
                 auth = a_sync_syncauth,

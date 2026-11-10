@@ -475,8 +475,6 @@ public class SettingsView : AppView {
                 () => backend.run_command( 1, 3, a_sync_synclogin_req, a_sync_syncauth)
             );
             
-            debug("a_sync_syncauth %s", a_sync_syncauth.to_string());
-
             keyfile.set_string("General", "hkey", a_sync_syncauth.hkey);
 
             do_action(AnkiReviewer.AppViewActions.SAVE_SETTINGS);

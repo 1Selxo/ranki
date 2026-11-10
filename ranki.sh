@@ -14,15 +14,48 @@ echo "=========================================="
 # Immediate on-screen feedback
 eips 1 1 "Starting Ranki..." 2>/dev/null
 
-ARCH="armel"
+ARMEL_LOADER="/lib/ld-linux.so.3"
+ARMHF_LOADER="/lib/ld-linux-armhf.so.3"
 
-# Apply sync_media setting from config.ini to ranki-armel binary before launch
+echo "=== ARM Binary / Loader Check ==="
+if [ -x "$ARMEL_LOADER" ]; then
+    echo "Found ARMEL loader: $ARMEL_LOADER"
+else
+    echo "ARMEL loader unavailable: $ARMEL_LOADER"
+fi
+if [ -x "$ARMHF_LOADER" ]; then
+    echo "Found ARMHF loader: $ARMHF_LOADER"
+else
+    echo "ARMHF loader unavailable: $ARMHF_LOADER"
+fi
+
+if [ -x "$ARMEL_LOADER" ] && [ -f "$BASE/ranki-armel" ]; then
+    ARCH="armel"
+    LOADER="$ARMEL_LOADER"
+elif [ -x "$ARMHF_LOADER" ] && [ -f "$BASE/ranki-armhf" ]; then
+    ARCH="armhf"
+    LOADER="$ARMHF_LOADER"
+else
+    echo "ERROR: No Ranki binary matches an executable Kindle ARM loader."
+    echo "Expected ranki-armel with $ARMEL_LOADER or ranki-armhf with $ARMHF_LOADER."
+    eips 1 2 "No compatible Ranki binary. Check ranki.log" 2>/dev/null
+    exit 1
+fi
+echo "Selected Ranki binary: ranki-$ARCH ($LOADER)"
+
+# The media-sync binary patch is specific to the ARMEL build.
 if grep -qi "sync_media=false" "$BASE/config.ini" 2>/dev/null; then
     echo "Media sync: DISABLED (sync_media=false in config.ini)"
-    printf '\x00\x27' | dd of="$BASE/ranki-$ARCH" bs=1 seek=$((0x21d0ec)) conv=notrunc 2>/dev/null
+    if [ "$ARCH" = "armel" ]; then
+        printf '\x00\x27' | dd of="$BASE/ranki-armel" bs=1 seek=$((0x21d0ec)) conv=notrunc 2>/dev/null
+    else
+        echo "WARNING: Media sync setting is not applied to the ARMHF binary."
+    fi
 else
     echo "Media sync: ENABLED (sync_media=true in config.ini)"
-    printf '\x01\x27' | dd of="$BASE/ranki-$ARCH" bs=1 seek=$((0x21d0ec)) conv=notrunc 2>/dev/null
+    if [ "$ARCH" = "armel" ]; then
+        printf '\x01\x27' | dd of="$BASE/ranki-armel" bs=1 seek=$((0x21d0ec)) conv=notrunc 2>/dev/null
+    fi
 fi
 
 # Create a clean tmpfs directory for libraries and symlinks (FAT32 on /mnt/us does not support symlinks)
@@ -71,8 +104,10 @@ echo "=== Configured Libraries in $TMPLIB ==="
 ls -l "$TMPLIB"
 
 echo "=== Dynamic Linking Check ==="
-if [ -x /lib/ld-linux.so.3 ]; then
-    /lib/ld-linux.so.3 --list "$BASE/ranki-$ARCH"
+"$LOADER" --list "$BASE/ranki-$ARCH"
+LINK_CHECK_EXIT=$?
+if [ $LINK_CHECK_EXIT -ne 0 ]; then
+    echo "WARNING: Dynamic linking check exited with code $LINK_CHECK_EXIT."
 fi
 
 echo "=== System Keyboard LIPC Diagnostic ==="
@@ -83,7 +118,11 @@ lipc-set-prop -i com.lab126.powerd preventScreenSaver 1 2>/dev/null
 
 echo "=== Launching $BASE/ranki-$ARCH ==="
 cd "$BASE"
-LD_PRELOAD="$TMPLIB/libk5compat.so" "$BASE/ranki-$ARCH" "$@"
+if [ "$ARCH" = "armel" ]; then
+    LD_PRELOAD="$TMPLIB/libk5compat.so" "$BASE/ranki-$ARCH" "$@"
+else
+    "$BASE/ranki-$ARCH" "$@"
+fi
 EXIT_CODE=$?
 
 echo "=== Ranki exited with code: $EXIT_CODE ==="
